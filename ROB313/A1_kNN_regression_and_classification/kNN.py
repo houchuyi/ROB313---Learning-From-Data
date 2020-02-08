@@ -4,19 +4,20 @@ import pandas
 import math
 from matplotlib import pyplot as plt
 from data.data_utils import load_dataset
+from tqdm import tqdm
 
 datasets = ['pumadyn32nm', 'iris', 'mnist_small', 'mauna_loa', 'rosenbrock']
 
-def load(dataset):
+def loadData(dataset):
     '''
     To load the dataset. Include one exception for the dataset 'rosenbrock'
     '''
     if dataset not in datasets:
         return 0,0,0,0,0,0
     elif dataset == 'rosenbrock':
-        xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset(dataset, ntrain=1000, d=2)
+        xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset('rosenbrock', n_train=1000, d=2)
     else:
-        xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset(dataset)
+        xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset(str(dataset))
     return xtrain, xvalid, xtest, ytrain, yvalid, ytest
 
 def L_1_metric(a,b):
@@ -52,6 +53,7 @@ def five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric, 
     #1
     np.random.seed(5)
     np.random.shuffle(x)
+    np.random.seed(5)
     np.random.shuffle(y)
 
     final_errors = []
@@ -64,8 +66,9 @@ def five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric, 
     #2
     length = len(x)//5
     #3
-    for i in range(5):
+    for i in tqdm(range(5), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'):
         #a, b
+
         x_test = x[i*length:(i+1)*length]
         x_train = np.vstack([x[:i*length], x[(i+1)*length:]])
         y_test = y[i*length:(i+1)*length]
@@ -73,18 +76,18 @@ def five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric, 
 
         for metric in distance_metric:
             predict = {} # create a dictionary containing k as the key and average y as the value for each k
-            for j in range(len(x_train)):
+            for j in tqdm(range(len(x_test)),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'):
                 distances = []
-                for a in range(len(x_test)):
+                for a in range(len(x_train)):
                     temp = metric(x_train[a],x_test[j])
                     distances.append((temp,y_train[a]))
             distances.sort(key = lambda x: x[0]) # sort distance based on distances calculated by the metric
 
             for k in k_list:
-                y = []
+                yy = []
                 for dist in distances[:k]:
-                    y.append(dist[1]) # add y_train[a] to y
-                y_avg = sum(y)/len(y)
+                    yy.append(dist[1]) # add y_train[a] to y
+                y_avg = sum(yy)/len(yy)
 
                 if k not in predict:
                     predict[k] = []
@@ -93,7 +96,7 @@ def five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric, 
         for k in k_list:
             if (k ,metric) not in rmse:
                 rmse[(k, metric)] = []
-            error = RMSE(y[k], y_valid)
+            error = RMSE(predict[k], y_test)
             rmse[(k,metric)].append(error)
     for k, metric in rmse:
         error = sum(rmse[(k,metric)])/len(rmse[(k,metric)]) # average all the errors calculated in each interpolation
@@ -113,7 +116,7 @@ def kNN(dataset, regression=True):
         For Q1, need to store data of the mauna_loa's result
 
     '''
-    xtrain, xvalid, xtest, ytrain, yvalid, ytest = load(dataset)
+    xtrain, xvalid, xtest, ytrain, yvalid, ytest = loadData(str(dataset))
 
     distance_metric = [L_1_metric, L_2_metric]
     if regression:
@@ -126,11 +129,11 @@ def kNN(dataset, regression=True):
         result = five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric)
         result.sort(key = lambda x:x[2]) # sort based on the error
         #print the best results
-        print("Best K:" + str(result[0][0]) + "Preferred Distance Metric:" + str(result[0][1]))
+        print("Best K:" + str(result[0][0]) + "  Preferred Distance Metric:" + str(result[0][1]))
         print("RMSE:" + str(result[0][2]))
 
-        print("###############ALL RESULTS###############")
-        print(result)
+        # print("###############ALL RESULTS###############")
+        # print(result)
 
     return result[0][0], result[0][1]
 
@@ -140,7 +143,7 @@ def kNN(dataset, regression=True):
     '''
 
 #REGRESSION
-for dataset in ['pumadyn32nm', 'mauna_loa', 'rosenbrock']:
+for dataset in ['mauna_loa','rosenbrock', 'pumadyn32nm']:
     k, metric = kNN(dataset, True)
     print(k , metric)
 
