@@ -68,7 +68,7 @@ def five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric, 
     #2
     length = len(x)//5
     #3
-    for i in tqdm(range(5), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'):
+    for i in tqdm(range(5),desc = 'Fold', ncols = 80):
         #a, b
 
         x_valid = x[i*length:(i+1)*length]
@@ -79,7 +79,7 @@ def five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric, 
         for metric in distance_metric:
             predict = {} # create a dictionary containing k as the key and average y as the value for each k
             #calculate all the distance from training points to validation points
-            for j in tqdm(range(len(x_valid)), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}'):
+            for j in tqdm(range(len(x_valid)),desc = 'x_valid', ncols = 80):
                 distances = []
                 for a in range(len(x_train)):
                     distances.append((metric(x_train[a],x_valid[j]) ,y_train[a]))
@@ -109,19 +109,18 @@ def five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric, 
 def test_regression(xtrain, xvalid, xtest, ytrain, yvalid, ytest, k, distance_metric, plot=False):
     '''
 
-    plot: True for manua_loa, False for others
+    plot: True for mauna_loa, False for others
     '''
     x = np.vstack([xtrain, xvalid])
     y = np.vstack([ytrain, yvalid])
 
     predict = []
-
+    train_predict = []
     for test in xtest:
         a = []
         for i in range(len(x)):
 
             a.append((distance_metric(test, x[i]), y[i]))
-
         a.sort(key=lambda x: x[0])
 
         #calculate the prediction by kth neighbours
@@ -131,9 +130,19 @@ def test_regression(xtrain, xvalid, xtest, ytrain, yvalid, ytest, k, distance_me
         avg = y_est/k
 
         predict.append(avg)
+    for point in xtrain:
+        b = []
+        for i in range(len(xvalid)):
+            b.append((distance_metric(point, xvalid[i]), y[i]))
+        b.sort(key=lambda x: x[0])
+        y_est = 0
+        for item in b[:k]:
+            y_est += item[1]
+        avg = y_est/k
+
+        train_predict.append(avg)
 
     test_error = RMSE(ytest, predict)
-
     if plot:
         # this section is for mauna loa dataset only
         plt.figure(2)
@@ -250,7 +259,7 @@ def test_classification(xtrain, xvalid, xtest, ytrain, yvalid, ytest, k, distanc
     # return accuracy (%)
     return correct/len(xtest)
 
-def train(dataset, regression=True):
+def main(dataset, regression=True):
     '''
         Takes in one dataset at one instance.
         regression: True for regression, False for classification
@@ -267,7 +276,7 @@ def train(dataset, regression=True):
         result = []
         print("~~~~~~~~~~REGRESSION~~~~~~~~~~")
         print("Dataset:" + dataset)
-        #special case for manua_loa, only use l2 metric
+        #special case for mauna_loa, only use l2 metric
         if dataset == 'mauna_loa':
             distance_metric = [L_2_metric]
         result = five_fold_cross_validation(xtrain, xvalid, ytrain, yvalid, distance_metric)
@@ -320,13 +329,13 @@ def train(dataset, regression=True):
         For Q1, only apply for regression datasets (i.e. 'pumadyn32nm', 'mauna_loa', 'rosenbrock')
     '''
 
-def performance(method):
+def performance(method,d):
     '''
     This function is only for Question 3, for performance study on kdTree data structure
     '''
     start = time.time()
 
-    xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset('rosenbrock', n_train=5000, d=2)
+    xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset('rosenbrock', n_train=5000, d=d)
 
     x = np.vstack([xtrain, xvalid])
     y = np.vstack([ytrain, yvalid])
@@ -375,9 +384,15 @@ def performance(method):
 
 
 def test_performance():
-    b_runtime, b_test_error = performance('brute_force')
-    t_runtime, t_test_error = performance('kdTree')
-
+    d = []
+    runtimeB = []
+    runtimeT = []
+    for i in range(2,11):
+        b_runtime, b_test_error = performance('brute_force',i)
+        t_runtime, t_test_error = performance('kdTree',i)
+        d.append(i)
+        runtimeB.append(b_runtime)
+        runtimeT.append(t_runtime)
     print("######Brute Force Approach######")
     print("Runtime: " + str(b_runtime))
     print("Test Error: " +str(b_test_error))
@@ -386,17 +401,80 @@ def test_performance():
     print("Runtime: " + str(t_runtime))
     print("Test Error: " +str(t_test_error))
 
+    plt.figure(2)
+    plt.plot(d, runtimeB, '-r', label = 'Brute Force')
+    plt.plot(d, runtimeT, '-b', label = 'k-d Tree')
+    plt.xlabel('d')
+    plt.ylabel('Runtime')
+    plt.legend(loc='upper right')
+    plt.title("Brute Force Runtime & k-d Tree Runtime for varying values of d")
+    plt.savefig('runtime_d.png')
 
 
+
+def plot_mauna_loa():
+
+    '''
+    for plotting the cross validation prediction on serveral different k using L2 metric
+    '''
+    xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset('mauna_loa')
+
+    klist = [1,2,8,10,20]
+    metric = L_2_metric
+
+    x = np.vstack((xtrain, xvalid, xtest))
+    y = np.vstack((ytrain, yvalid, ytest))
+    rval = [[]]
+    predict = [[]]
+    j = 0
+    for k in klist:
+
+        for test in tqdm(x, ncols = 100):
+            a = []
+            for i in range(len(x)):
+                a.append((metric(test, x[i]), y[i]))
+            a.sort(key=lambda x: x[0])
+
+            #calculate the prediction by kth neighbours
+            y_est = 0
+            for item in a[:k]:
+                y_est += item[1]
+            avg = y_est/k
+
+            predict[j].append(avg)
+        for idx in range(len(x)):
+            rval[j].append((x[idx],y[idx],predict[j][idx]))
+        rval[j].sort(key = lambda x:x[0])
+        rval.append([])
+
+        j += 1
+        predict.append([])
+
+    x = [item[0] for item in rval[0]]
+    y = [item[1] for item in rval[0]]
+
+    plt.figure(i)
+    plt.plot(x, y, label='Actual')
+    for w in range(j):
+        prediction = [item[2] for item in rval[w]]
+        plt.plot(x, prediction, label='Train k=' + str(klist[w]))
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.legend(loc='upper right')
+    plt.title('Test predictions at serveral k V.S. actual for Mauna Loa dataset')
+    plt.savefig('mauna_loa_actual_prediction.png')
+
+
+plot_mauna_loa()
 #############################Q1#############################
 #REGRESSION
-# for dataset in ['pumadyn32nm']: #'mauna_loa','rosenbrock']
-#     k, metric = train(dataset, True)
+# for dataset in ['mauna_loa']: #'mauna_loa','rosenbrock']
+#     k, metric = main(dataset, True)
 #############################Q2#############################
 #CLASSFICATION
 # for dataset in ['iris', 'mnist_small']:
 #     k, metric = train(dataset, False)
 #############################Q3#############################
-test_performance()
+#test_performance()
 
 #############################Q4#############################
