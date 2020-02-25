@@ -464,12 +464,12 @@ def plot_mauna_loa():
     plt.title('Test predictions at serveral k V.S. actual for Mauna Loa dataset')
     plt.savefig('mauna_loa_actual_prediction.png')
 
-
-plot_mauna_loa()
 #############################Q1#############################
 #REGRESSION
 # for dataset in ['mauna_loa']: #'mauna_loa','rosenbrock']
 #     k, metric = main(dataset, True)
+#
+#plot_mauna_loa()
 #############################Q2#############################
 #CLASSFICATION
 # for dataset in ['iris', 'mnist_small']:
@@ -478,3 +478,4 @@ plot_mauna_loa()
 #test_performance()
 
 #############################Q4#############################
+#see svd.py
