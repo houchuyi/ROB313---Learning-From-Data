@@ -298,36 +298,44 @@ def RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, theta, lam, regressio
 #####################################################
 
 #########################Q5##########################
-def create_dict_kernel(M,theta):
-    dict = {}
-    for i in range(M):
-        dict[i] = (exp_x2,xpow)
-    return dict
+# def create_dict_kernel(M,theta):
+#     dict = {}
+#     for i in range(M):
+#         dict[i] = (exp_x2,xpow)
+#     return dict
+#
+# def exp_x2(x):
+#     e = [[np.exp(1),np.exp(1)]]*len(x)
+#     return np.power(e,-np.power(x,2))
+# def xpow(x,i):
+#     return np.power(x,i)
 
-def exp_x2(x):
-    e = [[np.exp(1),np.exp(1)]]*len(x)
-    return np.power(e,-np.power(x,2))
-def xpow(x,i):
-    return np.power(x,i)
+def gaussian_kernel(x,z,theta):
+    return np.exp(-(np.linalg.norm([x-z],ord=2)**2)/theta)
 
 def MDL(k,N,l2error):
     return (N/2)*math.log(l2error)+(k/2)*math.log(N)
 
 def pick_basis(Iselected, Icandidates, r, Dict, xtrain):
     max = 0
+    phi_X = 0
+    i = 0
     for j in Icandidates:
         #Iselected.append(j)
-        phi = math.sqrt(math.pow(2,j)/math.factorial(j))*Dict[j][0](xtrain)*Dict[j][1](xtrain,j)
-
-        Jphi = (np.dot(phi.T, r))/np.dot(phi.T, phi)
+        # phi = math.sqrt(math.pow(2,j)/math.factorial(j))*Dict[j][0](xtrain)*Dict[j][1](xtrain,j)
+        z = xtrain[j]
+        phi = []
+        for k in xtrain:
+            phi.append(gaussian_kernel(k,z))
+        Jphi = ((np.dot(phi.T, r))**2)/np.dot(phi.T, phi)
         #want to find i = argmax Jphi
-        print(Jphi)
         if max < Jphi:
             max = Jphi
             i = j
-
+            reduc_r = np.dot((np.dot(phi.T, r))/np.dot(phi.T, phi), phi)
+            phi_X = phi
         #Iselected.remove(j)
-    return i, max
+    return i, max, reduc_r, phi_X
 
 def orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, M, theta):
     k = 0 #number of iterations
@@ -336,33 +344,35 @@ def orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, M, theta):
     Icandidates = [i+1 for i in range(M)]
     r = ytrain #first residual, training error
     N = len(xtrain)
-    l2error = RMSE(0, yvalid)
-    while np.linalg.norm(r,ord=2) > MDL(k,N,l2error):
-        k = k + 1
+    l2error = RMSE(0, yvalid)**2
+    prel2error = 2*l2error
+    weight, pre_weight = 0,0
+    phi_X = np.empty((xtrain.shape[0],0))
+    while MDL(k-1,N,pre_l2error) > MDL(k,N,l2error):
+        pre_l2error = l2error
+        pre_weight = weight
 
-        i,reduc_r = pick_basis(Iselected,Icandidates,r,Dict, xtrain)
+        k = k + 1
+        i,reduc_r, reduc_r_norm, phi = pick_basis(Iselected,Icandidates,r,Dict, xtrain)
         # math.sqrt(math.pow(2,i)/math.factorial(i))
         Iselected.append(i)
         Icandidates.remove(i)
 
-        r = r - reduc_r
+
+
+        phi_X = np.hstack([phi_X, phi])
 
         #########################################################
-        # phi_X = np.ones((len(xtrain),1))
-        #
-        # for f in basis_functions:
-        #     phi_X = np.hstack([phi_X, f(xtrain)])
-        #
-        # U, sigma, V = np.linalg.svd(phi_X, full_matrices=True)
-        # S = np.vstack([np.diag(sigma),np.zeros((len(xtrain)-len(sigma),len(sigma)))]
-        # ST_S = np.dot(S.T, S)
-        # temp = np.linalg.pinv(ST_S + lam*np.eye(len(ST_S))) #(ST_s + lambda)^-1
-        # weights = np.dot(V.T, np.dot(temp, np.dot(S.T, np.dot(U.T, ytrain))))
-        # ypred = np.dot(phi_X, weights)
-        # r = ytrain - ypre
+        U, sigma, V = np.linalg.svd(phi_X, full_matrices=True)
+        S = np.vstack([np.diag(sigma),np.zeros((len(xtrain)-len(sigma),len(sigma)))]
+        ST_S = np.dot(S.T, S)
+        temp = np.linalg.pinv(ST_S + lam*np.eye(len(ST_S))) #(ST_s + lambda)^-1
+        weight = np.dot(V.T, np.dot(temp, np.dot(S.T, np.dot(U.T, ytrain))))
+        ypred = np.dot(phi_X, weight)
+        r = ytrain - ypred
+        l2error = (np.linalg.norm(r,ord=2)**2) - reduc_r_norm
         ##########################################################
-
-    return r, Iselected
+    return Iselected[:-1], pre_weight
 
 #####################################################
 
