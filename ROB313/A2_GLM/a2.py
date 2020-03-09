@@ -197,7 +197,7 @@ def plot_kernel():
 def rbf_gaussian(x,z,theta):
     return math.exp(-(L_2_metric(x, z) ** 2) / theta)
 
-def RBF_validation(xtrain, xvalid, ytrain, yvalid, regression = True):
+def Q4_RBF_validation(xtrain, xvalid, ytrain, yvalid, regression = True):
     '''
     find the optimal theta, regularization parameter
     '''
@@ -257,7 +257,7 @@ def RBF_validation(xtrain, xvalid, ytrain, yvalid, regression = True):
         return best_theta, best_lambda, valid_accuracy
 
 
-def RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, theta, lam, regression = True):
+def Q4_RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, theta, lam, regression = True):
 
     xtotal = np.vstack([xtrain, xvalid])
     ytotal = np.vstack([ytrain, yvalid])
@@ -316,7 +316,7 @@ def gaussian_kernel(x,z,theta):
 def MDL(k,N,l2error):
     return (N/2)*math.log(l2error)+(k/2)*math.log(N)
 
-def pick_basis(Iselected, Icandidates, r, Dict, xtrain):
+def pick_basis(Icandidates, r, xtrain):
     max = 0
     phi_X = 0
     i = 0
@@ -332,16 +332,15 @@ def pick_basis(Iselected, Icandidates, r, Dict, xtrain):
         if max < Jphi:
             max = Jphi
             i = j
-            reduc_r = np.dot((np.dot(phi.T, r))/np.dot(phi.T, phi), phi)
             phi_X = phi
         #Iselected.remove(j)
-    return i, max, reduc_r, phi_X
+    return i, phi_X
 
-def orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, M, theta):
+def Q5_orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, theta):
     k = 0 #number of iterations
-    Dict = create_dict_kernel(M,theta) #create the coefficient of the basis functions
+    # Dict = create_dict_kernel(M,theta) #create the coefficient of the basis functions
     Iselected = []
-    Icandidates = [i+1 for i in range(M)]
+    Icandidates = list(range(len(xtrain)))
     r = ytrain #first residual, training error
     N = len(xtrain)
     l2error = RMSE(0, yvalid)**2
@@ -353,12 +352,10 @@ def orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, M, theta):
         pre_weight = weight
 
         k = k + 1
-        i,reduc_r, reduc_r_norm, phi = pick_basis(Iselected,Icandidates,r,Dict, xtrain)
+        i, phi = pick_basis(Icandidates,r, xtrain)
         # math.sqrt(math.pow(2,i)/math.factorial(i))
         Iselected.append(i)
         Icandidates.remove(i)
-
-
 
         phi_X = np.hstack([phi_X, phi])
 
@@ -370,10 +367,29 @@ def orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, M, theta):
         weight = np.dot(V.T, np.dot(temp, np.dot(S.T, np.dot(U.T, ytrain))))
         ypred = np.dot(phi_X, weight)
         r = ytrain - ypred
-        l2error = (np.linalg.norm(r,ord=2)**2) - reduc_r_norm
+        l2error = (np.linalg.norm(r,ord=2)**2)
         ##########################################################
-    return Iselected[:-1], pre_weight
+    return Iselected[:-1], pre_weight, prel2error
 
+def Q5_test(xtrain, xtest, ytrain, ytest, theta, Iselected):
+        
+    phi_X = np.empty((xtrain.shape[0],0))
+    
+    for i in Iselected:
+        phi = []
+        for k in xtest:
+            phi.append(k,xtrain[i],theta)
+        phi_X = np.hstack([phi_X, phi])
+                      
+#     U, sigma, V = np.linalg.svd(phi_X, full_matrices=True)
+#     S = np.vstack([np.diag(sigma),np.zeros((len(xtrain)-len(sigma),len(sigma)))]
+#     ST_S = np.dot(S.T, S)
+#     temp = np.linalg.pinv(ST_S + lam*np.eye(len(ST_S))) #(ST_s + lambda)^-1
+#     weight = np.dot(V.T, np.dot(temp, np.dot(S.T, np.dot(U.T, ytrain))))
+    ypred = np.dot(phi_X, weight)
+    rmse = RMSE(ypred, ytest)                  
+                      
+    return rmse                  
 #####################################################
 
 #####################################################
@@ -395,8 +411,8 @@ if q3:
     plot_kernel()
 if q4:
     xtrain, xvalid, xtest, ytrain, yvalid, ytest = loadData('iris')
-    best_theta, best_lambda, valid_acc = RBF_validation(xtrain, xvalid, ytrain, yvalid, regression = False)
-    test_acc = RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, best_theta, best_lambda, regression = False)
+    best_theta, best_lambda, valid_acc = Q4_RBF_validation(xtrain, xvalid, ytrain, yvalid, regression = False)
+    test_acc = Q4_RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, best_theta, best_lambda, regression = False)
     print('Q4: '+ 'iris')
     print('Optimial Theta=' +str(best_theta) +' Optimal Lambda= '+ str(best_lambda))
     print('Validation Accuracy: ' + str(valid_acc))
@@ -404,16 +420,16 @@ if q4:
 
 
     xtrain, xvalid, xtest, ytrain, yvalid, ytest = loadData('rosenbrock')
-    best_theta, best_lambda, valid_rmse = RBF_validation(xtrain, xvalid, ytrain, yvalid,True)
-    test_rmse = RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, best_theta, best_lambda,True)
+    best_theta, best_lambda, valid_rmse = Q4_RBF_validation(xtrain, xvalid, ytrain, yvalid,True)
+    test_rmse = Q4_RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, best_theta, best_lambda,True)
     print('Q4: '+ 'rosenbrock')
     print('Optimial Theta=' +str(best_theta) +' Optimal Lambda= '+ str(best_lambda))
     print('Validation RMSE: ' + str(valid_rmse))
     print('Test RMSE: '+str(test_rmse))
 
     xtrain, xvalid, xtest, ytrain, yvalid, ytest = loadData('mauna_loa')
-    best_theta, best_lambda, valid_rmse = RBF_validation(xtrain, xvalid, ytrain, yvalid,True)
-    test_rmse = RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, best_theta, best_lambda,True)
+    best_theta, best_lambda, valid_rmse = Q4_RBF_validation(xtrain, xvalid, ytrain, yvalid,True)
+    test_rmse = Q4_RBF_test(xtrain, xvalid, xtest, ytrain, yvalid, ytest, best_theta, best_lambda,True)
     print('Q4: '+ 'mauna_loa')
     print('Optimial Theta=' +str(best_theta) +' Optimal Lambda= '+ str(best_lambda))
     print('Validation RMSE: ' + str(valid_rmse))
@@ -421,10 +437,14 @@ if q4:
 if q5:
     xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset('rosenbrock', n_train=200, d=2)
     thetas = [0.01,0.1,1.0]
-    M = 10
     for theta in thetas:
-        r, Iselected = orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, M, theta)
-        print("The final residual is " + str(np.linalg.norm(r,ord=2)) + ", with theta = "+str(theta)+" M = "+str(M))
+        Iselected, weight, l2loss = orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, theta)
+        print("The final l2-loss is " + str(l2loss) + ", with theta = "+str(theta)")
+    rmse = Q5_test(xtrain,xtest,ytrain,ytest,theta=0.1, Iselected, weight)
+    print("The result of OMP on the test dataset of rosenbrock:")
+    print("Number of basis function used: "+str(len(Iselected)))
+    print("Theta: "+str(theta))
+    print("Test RMSE: " + str(rmse))
 ###########For viewing the data###################
 # data = loadData("mauna_loa")
 # plt.plot(data[0],data[3])
