@@ -371,7 +371,7 @@ def Q5_orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, theta):
         ##########################################################
     return Iselected[:-1], pre_weight, prel2error
 
-def Q5_test(xtrain, xtest, ytrain, ytest, theta, Iselected):
+def Q5_test(xtrain, xtest, ytrain, ytest, theta, Iselected, weight):
         
     phi_X = np.empty((xtrain.shape[0],0))
     
