@@ -364,14 +364,14 @@ def Q5_orth_match_pursuit(xtrain,xvalid,ytrain,yvalid, theta):
     return Iselected[:-1], pre_weight, MDL(k-1,N,pre_l2error)
 
 def Q5_test(xtrain, xtest, ytrain, ytest, theta, Iselected, weight):
-
+    xtrain, xvalid, xtest, ytrain, yvalid, ytest = load_dataset('rosenbrock', n_train=200, d=2)
     phi_X = np.empty((len(xtest),len(Iselected)))
     for row in range(len(xtest)):
         temp = np.ndarray((len(Iselected)))
         for col in range(len(Iselected)):
             temp[col] = gaussian_kernel(xtest[row],xtrain[col],theta)
         phi_X[row,:] = temp
-    print(phi_X[0,:])
+
     ypred = np.dot(phi_X, weight)
     rmse = RMSE(ypred, ytest)
 
